@@ -59,7 +59,10 @@ test("forced colors and reduced motion preserve keyboard state", async (t) => {
 		});
 
 		assert.ok(audit, "accessibility audit targets were not rendered");
-		assert.match(audit.fontFamily, /Segoe UI Variable Text/u);
+		// 22838d46e moved --font-sans off the Windows-only "Segoe UI Variable Text"
+		// stack to a cross-platform one. Assert the shared family rather than the
+		// whole list so reordering the stack does not fail this.
+		assert.match(audit.fontFamily, /Segoe UI/u);
 		assert.equal(audit.unnamed, 0);
 		assert.equal(audit.activeOutline, "solid");
 		assert.ok(parseFloat(audit.activeOutlineWidth) >= 1.5, audit.activeOutlineWidth);
