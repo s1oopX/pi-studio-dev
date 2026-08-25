@@ -1423,7 +1423,9 @@ describe("openai-completions tool_choice", () => {
 	});
 
 	it("sends max_tokens for OpenCode completions models", async () => {
-		const cases = [getModel("opencode-go", "kimi-k2.6")!, getModel("opencode", "grok-build-0.1")!] as const;
+		// grok-build-0.1 moved to openai-responses upstream, which widened the
+		// compat union past maxTokensField; keep both cases on completions models.
+		const cases = [getModel("opencode-go", "kimi-k2.6")!, getModel("opencode", "glm-5.2")!] as const;
 
 		for (const model of cases) {
 			let payload: unknown;
