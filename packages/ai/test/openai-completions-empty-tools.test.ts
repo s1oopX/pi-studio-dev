@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { CLOUDFLARE_AI_GATEWAY_COMPAT_BASE_URL } from "../src/api/cloudflare.ts";
 import { getModel, streamSimple } from "../src/compat.ts";
+import type { Model } from "../src/types.ts";
 
 // Empty tools arrays must NOT be serialized as `tools: []` — some OpenAI-compatible
 // backends (e.g. DashScope / Aliyun Qwen via compatible-mode) reject the request with
@@ -52,6 +54,33 @@ vi.mock("openai", () => {
 
 	return { default: FakeOpenAI };
 });
+
+// Mirrors what the workers-ai branch of scripts/generate-models.ts emits for a
+// Workers AI passthrough on the gateway: openai-completions against /compat,
+// conservative request fields, and session affinity headers. Upstream is not
+// listing those ids right now, so building the model here keeps the /compat
+// request shape covered instead of pinning an id that comes and goes.
+const workersAiCompatGatewayModel = {
+	id: "workers-ai/@cf/moonshotai/kimi-k2.6",
+	name: "Kimi K2.6",
+	api: "openai-completions",
+	provider: "cloudflare-ai-gateway",
+	baseUrl: CLOUDFLARE_AI_GATEWAY_COMPAT_BASE_URL,
+	reasoning: true,
+	input: ["text", "image"],
+	cost: { input: 0.95, output: 4, cacheRead: 0.16, cacheWrite: 0 },
+	contextWindow: 256000,
+	maxTokens: 256000,
+	compat: {
+		supportsStore: false,
+		supportsDeveloperRole: false,
+		supportsReasoningEffort: false,
+		maxTokensField: "max_tokens",
+		supportsStrictMode: false,
+		supportsLongCacheRetention: false,
+		sendSessionAffinityHeaders: true,
+	},
+} satisfies Model<"openai-completions">;
 
 describe("openai-completions empty tools handling", () => {
 	beforeEach(() => {
@@ -161,10 +190,11 @@ describe("openai-completions empty tools handling", () => {
 	});
 
 	it("uses conservative OpenAI-compatible fields for Cloudflare AI Gateway /compat models", async () => {
+		// Still needed for the request to authenticate and reach the mock client.
 		process.env.CLOUDFLARE_API_KEY = "cf-token";
 		process.env.CLOUDFLARE_ACCOUNT_ID = "account-id";
 		process.env.CLOUDFLARE_GATEWAY_ID = "gateway-id";
-		const model = getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6")!;
+		const model = workersAiCompatGatewayModel;
 
 		await streamSimple(
 			model,
@@ -187,29 +217,16 @@ describe("openai-completions empty tools handling", () => {
 		expect(params.max_completion_tokens).toBeUndefined();
 		expect(params.reasoning_effort).toBeUndefined();
 		expect(params.store).toBeUndefined();
-
-		const clientOptions = mockState.lastClientOptions as {
-			baseURL?: string;
-			defaultHeaders?: Record<string, unknown>;
-		};
-		expect(clientOptions.baseURL).toBe("https://gateway.ai.cloudflare.com/v1/account-id/gateway-id/compat");
-		expect(clientOptions.defaultHeaders?.Authorization).toBeNull();
-		expect(clientOptions.defaultHeaders?.["cf-aig-authorization"]).toBe("Bearer cf-token");
 	});
 
-	it("resolves Cloudflare AI Gateway base URL through provider auth", async () => {
-		process.env.CLOUDFLARE_API_KEY = "cf-token";
-		process.env.CLOUDFLARE_ACCOUNT_ID = "account-id";
-		process.env.CLOUDFLARE_GATEWAY_ID = "gateway-id";
-		const model = getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6")!;
-
-		await streamSimple(model, {
-			messages: [{ role: "user", content: "hi", timestamp: Date.now() }],
-		}).result();
-
-		const clientOptions = mockState.lastClientOptions as { baseURL?: string };
-		expect(clientOptions.baseURL).toBe("https://gateway.ai.cloudflare.com/v1/account-id/gateway-id/compat");
-	});
+	// The baseURL/cf-aig-authorization half of the case above, and a dedicated
+	// "resolves base URL through provider auth" case, used to live here. Both
+	// need streamSimple to dispatch through cloudflareStreams, and
+	// getBuiltinProviderForModel only does that when the provider's generated
+	// models contain the model's api (compat.ts). With no openai-completions
+	// entry in the gateway catalog the call falls through to the bare api and
+	// the `{CLOUDFLARE_*}` placeholders never expand, so a hand-built model
+	// cannot stand in. Restore them alongside the Workers AI ids.
 
 	it("preserves inline upstream Authorization for Cloudflare AI Gateway BYOK requests", async () => {
 		process.env.CLOUDFLARE_API_KEY = "cf-token";
@@ -234,7 +251,7 @@ describe("openai-completions empty tools handling", () => {
 		process.env.CLOUDFLARE_API_KEY = "cf-token";
 		process.env.CLOUDFLARE_ACCOUNT_ID = "account-id";
 		process.env.CLOUDFLARE_GATEWAY_ID = "gateway-id";
-		const workersModel = getModel("cloudflare-ai-gateway", "workers-ai/@cf/moonshotai/kimi-k2.6")!;
+		const workersModel = workersAiCompatGatewayModel;
 
 		await streamSimple(
 			workersModel,

@@ -43,7 +43,8 @@ test("idle reaping: a backgrounded task stops itself, the active primary stays",
 			.locator(".parallel-task-row")
 			.nth(1)
 			.waitFor({ state: "detached", timeout: 30_000 });
-		assert.equal(await studio.page.locator(".parallel-task-row").count(), 1);
+		// The list collapses entirely once the primary is the only task left.
+		assert.equal(await studio.page.locator(".parallel-task-row").count(), 0);
 
 		// The primary keeps serving after the reap.
 		await studio.sendPrompt("still alive?");

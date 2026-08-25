@@ -76,13 +76,14 @@ test("parallel tasks: two backends stream side by side and switching loses nothi
 		assert.equal(await studio.page.locator(".parallel-task-unread").count(), 0);
 
 		// Stop the pool task (it is active, so the UI falls back to the
-		// primary first); the row disappears and the primary still answers.
+		// primary first); the list collapses back to nothing because only the
+		// primary is left, and the primary still answers.
 		await poolRow.locator(".parallel-task-stop").click();
 		await studio.page
 			.locator(".parallel-task-row")
 			.nth(1)
 			.waitFor({ state: "detached", timeout: LAUNCH_TIMEOUT_MS });
-		assert.equal(await studio.page.locator(".parallel-task-row").count(), 1);
+		assert.equal(await studio.page.locator(".parallel-task-row").count(), 0);
 		await studio.page.getByText("fast reply done").first().waitFor({ state: "visible", timeout: LAUNCH_TIMEOUT_MS });
 	} catch (error) {
 		try {

@@ -4,11 +4,21 @@ import { assertPrerequisites, launchStudio, LAUNCH_TIMEOUT_MS } from "./harness.
 
 test("forced colors and reduced motion preserve keyboard state", async (t) => {
 	assertPrerequisites();
-	const studio = await launchStudio();
+	const studio = await launchStudio({ extraWorkspaces: 1 });
 	t.after(() => studio.close());
 
 	try {
 		await studio.waitUntilReady();
+
+		// The task list stays hidden while only the primary task exists, so add a
+		// pool task to get a rendered active row for the outline assertions.
+		await studio.stubFolderPicker(studio.extraWorkspaceDirs[0]);
+		await studio.page.locator(".parallel-tasks .workspace-navigation-add").click();
+		await studio.page
+			.locator(".parallel-task-row.active .parallel-task-dot.ready")
+			.waitFor({ state: "visible", timeout: LAUNCH_TIMEOUT_MS });
+		await studio.waitForWorkspaceSettled();
+
 		await studio.page.emulateMedia({ forcedColors: "active", reducedMotion: "reduce" });
 		await studio.page.waitForFunction(
 			() => matchMedia("(forced-colors: active)").matches && matchMedia("(prefers-reduced-motion: reduce)").matches,
@@ -49,7 +59,10 @@ test("forced colors and reduced motion preserve keyboard state", async (t) => {
 		});
 
 		assert.ok(audit, "accessibility audit targets were not rendered");
-		assert.match(audit.fontFamily, /Segoe UI Variable Text/u);
+		// 22838d46e moved --font-sans off the Windows-only "Segoe UI Variable Text"
+		// stack to a cross-platform one. Assert the shared family rather than the
+		// whole list so reordering the stack does not fail this.
+		assert.match(audit.fontFamily, /Segoe UI/u);
 		assert.equal(audit.unnamed, 0);
 		assert.equal(audit.activeOutline, "solid");
 		assert.ok(parseFloat(audit.activeOutlineWidth) >= 1.5, audit.activeOutlineWidth);
@@ -57,7 +70,11 @@ test("forced colors and reduced motion preserve keyboard state", async (t) => {
 		assert.ok(parseFloat(audit.focusOutlineWidth) >= 1.5, audit.focusOutlineWidth);
 		assert.ok(parseFloat(audit.transitionDuration) <= 0.001, audit.transitionDuration);
 
-		const settingsTrigger = studio.page.getByRole("button", { name: /Settings|设置/u });
+		// Expanded sidebars reach settings through the footer's "Account and
+		// settings"; the plain "Settings" button only exists in the collapsed rail.
+		// Match case-insensitively so either layout resolves, which stays a single
+		// element because the two are mutually exclusive.
+		const settingsTrigger = studio.page.getByRole("button", { name: /settings|设置/iu });
 		await settingsTrigger.click();
 		await studio.page.locator(".settings-panel").waitFor();
 		assert.deepEqual(

@@ -37,6 +37,11 @@ test("git flow: create a branch and push to a bare remote", async (t) => {
 			remoteDir = join(tempRoot, "remote.git");
 			git(tempRoot, ["init", "--bare", "-b", "main", remoteDir]);
 			git(workspaceDir, ["init", "-b", "main"]);
+			// The app commits through its own git child process, which does not
+			// inherit the GIT_AUTHOR_*/GIT_COMMITTER_* env above, so record the
+			// identity in the repository config as well.
+			git(workspaceDir, ["config", "user.email", "e2e@example.com"]);
+			git(workspaceDir, ["config", "user.name", "E2E"]);
 			git(workspaceDir, ["remote", "add", "origin", remoteDir]);
 			writeFileSync(join(workspaceDir, "README.md"), "# e2e\n");
 			git(workspaceDir, ["add", "README.md"]);
