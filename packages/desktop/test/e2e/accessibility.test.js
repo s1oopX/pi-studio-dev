@@ -70,7 +70,11 @@ test("forced colors and reduced motion preserve keyboard state", async (t) => {
 		assert.ok(parseFloat(audit.focusOutlineWidth) >= 1.5, audit.focusOutlineWidth);
 		assert.ok(parseFloat(audit.transitionDuration) <= 0.001, audit.transitionDuration);
 
-		const settingsTrigger = studio.page.getByRole("button", { name: /Settings|设置/u });
+		// Expanded sidebars reach settings through the footer's "Account and
+		// settings"; the plain "Settings" button only exists in the collapsed rail.
+		// Match case-insensitively so either layout resolves, which stays a single
+		// element because the two are mutually exclusive.
+		const settingsTrigger = studio.page.getByRole("button", { name: /settings|设置/iu });
 		await settingsTrigger.click();
 		await studio.page.locator(".settings-panel").waitFor();
 		assert.deepEqual(
