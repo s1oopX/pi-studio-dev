@@ -85,15 +85,13 @@ const PROVIDER_MODEL_PAIRS: ProviderModelPair[] = [
 	// Cloudflare Workers AI
 	{ provider: "cloudflare-workers-ai", model: "@cf/moonshotai/kimi-k2.6", label: "cloudflare-kimi-k2.6" },
 	// Cloudflare AI Gateway
+	// A workers-ai/@cf/moonshotai/* entry belongs here too, but upstream is not
+	// listing the gateway's Workers AI passthroughs; the direct
+	// cloudflare-workers-ai pair above still covers Kimi.
 	{
 		provider: "cloudflare-ai-gateway",
-		model: "workers-ai/@cf/moonshotai/kimi-k2.6",
-		label: "cloudflare-gateway-kimi-k2.6",
-	},
-	{
-		provider: "cloudflare-ai-gateway",
-		model: "claude-sonnet-4-5",
-		label: "cloudflare-gateway-claude-sonnet-4-5",
+		model: "claude-sonnet-4.5",
+		label: "cloudflare-gateway-claude-sonnet-4.5",
 		upstreamApiKeyEnv: "ANTHROPIC_API_KEY",
 	},
 	{
